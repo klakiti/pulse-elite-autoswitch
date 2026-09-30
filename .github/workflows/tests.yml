@@ -1,0 +1,22 @@
+name: Tests and packages
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GUI test dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-gi gir1.2-gtk-3.0 xvfb xauth desktop-file-utils
+      - name: Test shared backend and desktop UI
+        run: xvfb-run -a /usr/bin/python3 -m unittest discover -s tests -v
+      - name: Validate desktop entry and installer syntax
+        run: |
+          desktop-file-validate packaging/pulse-elite-autoswitch.desktop
+          bash -n install.sh
+      - name: Build packages
+        run: /usr/bin/python3 build-deb.py
+      - name: Check package hashes
+        working-directory: dist
+        run: sha256sum -c SHA256SUMS

@@ -6,7 +6,7 @@ Turn the working Pulse Elite automatic output switcher into an installable Linux
 
 Both interfaces are first-release requirements. They must share the same configuration, validation, and service-control logic; neither should depend on the other being open.
 
-The existing private repository is the continuation point. This document records planned work; the package and graphical setup window are not implemented yet.
+The existing private repository is the continuation point. A v0.1 candidate now implements the shared core, CLI, GTK desktop window, migration helper, and separate Debian packages on a feature branch. See TESTING.md for the hardware/package acceptance checks still required before merging or releasing.
 
 ## Proposed first release
 
@@ -112,7 +112,7 @@ Hardware support must remain scoped to the validated adapter ID `054c:0ecc` unti
 
 ## Current evidence and continuation notes
 
-- Existing source includes a configurable Python daemon, user service, udev rule, manual installer, and five passing unit tests.
+- The v0.1 feature branch includes a shared Python core, CLI, GTK desktop UI, migration helper, user service, udev rule, separate Debian packages, and expanded automated tests.
 - Repeated headset cycles and live Chrome playback switching were verified on Zorin OS 18.1, PipeWire 1.0.5, and WirePlumber 0.4.17.
 - `PROTOCOL.md` records the observed status signatures and remaining uncertainty.
 - Reboot, suspend/resume, hot-unplug recovery, and package installation have not yet been validated on hardware.
