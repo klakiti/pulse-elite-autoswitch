@@ -2,7 +2,7 @@
 
 Automatically switch between a Sony PULSE Elite headset and a selected fallback audio output. Configure it through a desktop window or entirely from the command line.
 
-**v0.1.0 is a first-release candidate.** The headset protocol and live routing were tested on Zorin OS 18.1 with the `054c:0ecc` PlayStation Link adapter, PipeWire 1.0.5, and WirePlumber 0.4.17. Fresh package installation, reboot/start-at-login recovery, and physical adapter unplug/replug during playback are verified on that PC. Suspend, upgrades, package removal, and additional reconnect scenarios still need end-to-end hardware acceptance tests. Automated tests cover their routing and recovery logic.
+**v0.1.1 is a first-release candidate.** The headset protocol and live routing were tested on Zorin OS 18.1 with the `054c:0ecc` PlayStation Link adapter, PipeWire 1.0.5, and WirePlumber 0.4.17. Fresh package installation, reboot/start-at-login recovery, and physical adapter unplug/replug during playback are verified on that PC. Suspend, upgrades, package removal, and additional reconnect scenarios still need end-to-end hardware acceptance tests. Automated tests cover their routing and recovery logic.
 
 ## Install the packages
 
@@ -12,10 +12,10 @@ From the directory containing the built packages:
 
 ```bash
 # Desktop UI plus CLI
-sudo apt install ./pulse-elite-autoswitch_0.1.0_all.deb ./pulse-elite-autoswitch-desktop_0.1.0_all.deb
+sudo apt install ./pulse-elite-autoswitch_0.1.1_all.deb ./pulse-elite-autoswitch-desktop_0.1.1_all.deb
 
 # Or just the core/CLI
-sudo apt install ./pulse-elite-autoswitch_0.1.0_all.deb
+sudo apt install ./pulse-elite-autoswitch_0.1.1_all.deb
 ```
 
 Installation registers the user service and adapter permissions. It does not choose an output or start routing automatically. If device access is unavailable afterward, unplug and reconnect the adapter while logged into your local desktop session.
@@ -40,8 +40,10 @@ Open **Pulse Elite AutoSwitch** from the applications menu, or run:
 
 1. Confirm the detected PlayStation Link playback output.
 2. Select a fallback output, such as speakers or monitor audio.
-3. Choose whether to start at login, then click **Save settings**.
-4. Click **Start switching**. Use **Pause** to stop routing without changing the login preference.
+3. Choose whether to start at login. Device selections and the login preference save immediately.
+4. Click **Enable** to start routing or **Disable** to stop it without changing the login preference.
+
+The headset indicator is green when Connected and red when Disconnected (including an unplugged adapter). Read errors appear separately; an unconfirmed connection displays Disconnected.
 
 The window reports USB adapter absence separately from an off/disconnected headset and read errors. Configuration changes from the CLI appear on refresh; unsaved UI edits are preserved until you save or reopen the window.
 

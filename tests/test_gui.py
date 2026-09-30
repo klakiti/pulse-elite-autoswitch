@@ -22,23 +22,103 @@ class GuiTests(unittest.TestCase):
     def tearDown(self):
         self.ui.destroy()
 
-    def test_configuration_refresh_and_distinct_adapter_message(self):
-        self.ui.populate(self.state,self.outputs)
-        self.assertEqual(self.ui.fallback.get_active_id(),'speakers')
-        self.assertIn('USB adapter disconnected',self.ui.status_label.get_text())
+    def immediate_jobs(self):
+        self.ui.job = lambda fn, done, failed=None: done(fn())
+
+    def test_binary_connection_indicator(self):
+        for state in ('disconnected', 'shutdown', 'adapter-absent', 'unknown', 'connected'):
+            self.state['headset'] = state
+            self.ui.populate(self.state, self.outputs)
+            connected = state == 'connected'
+            self.assertEqual(self.ui.status_label.get_text(), 'Connected' if connected else 'Disconnected')
+            self.assertIn('#26a269' if connected else '#c01c28', self.ui.indicator.get_label())
         self.assertFalse(self.ui.dirty)
 
-    def test_ui_saves_through_same_backend_as_cli(self):
-        self.ui.populate(self.state,self.outputs)
-        self.ui.job = lambda fn, done: done(fn())
-        with patch.object(core,'save_selection') as save, patch.object(core,'service') as service:
-            self.ui.save()
-        save.assert_called_once_with('headset','speakers')
-        service.assert_called_once_with('disable')
+    def test_refresh_does_not_write_settings(self):
+        with patch.object(core, 'save_selection') as save, patch.object(core, 'service') as service:
+            self.ui.populate(self.state, self.outputs)
+        save.assert_not_called()
+        service.assert_not_called()
 
-    def test_pending_user_edits_are_not_replaced_by_periodic_refresh(self):
-        self.ui.populate(self.state,self.outputs)
+    def test_device_selection_saves_immediately(self):
+        self.outputs.append(dict(id=30, name='other', label='Other', device_name='other-card', is_headset=False))
+        self.ui.populate(self.state, self.outputs)
+        self.immediate_jobs()
+        with patch.object(core, 'save_selection') as save, patch.object(core, 'service') as service:
+            self.ui.fallback.set_active_id('other')
+        save.assert_called_once_with('headset', 'other')
+        service.assert_not_called()
+        self.assertFalse(self.ui.dirty)
+
+    def test_login_preference_saves_without_revalidating_missing_devices(self):
+        self.ui.populate(self.state, self.outputs)
+        self.immediate_jobs()
+        with patch.object(core, 'save_selection') as save, patch.object(core, 'service') as service:
+            self.ui.autostart.set_active(True)
+        save.assert_not_called()
+        service.assert_called_once_with('enable')
+
+    def test_edits_during_refresh_are_preserved_and_saved(self):
+        self.ui.populate(self.state, self.outputs)
+        self.ui.busy = True
         self.ui.autostart.set_active(True)
-        self.ui.populate(self.state,self.outputs)
+        self.ui.populate(self.state, self.outputs)
         self.assertTrue(self.ui.autostart.get_active())
         self.assertTrue(self.ui.dirty)
+        self.ui.busy = False
+        self.immediate_jobs()
+        with patch.object(core, 'service') as service:
+            self.ui.save()
+        service.assert_called_once_with('enable')
+        self.assertFalse(self.ui.dirty)
+
+    def test_enable_disable_controls_running_service(self):
+        self.immediate_jobs()
+        self.ui.refresh = lambda: None
+        for active, label, action, result in (('inactive', 'Enable', 'start', 'active'),
+                                            ('active', 'Disable', 'stop', 'inactive')):
+            self.state['service']['active'] = active
+            self.ui.populate(self.state, self.outputs)
+            self.assertEqual(self.ui.toggle_button.get_label(), label)
+            with patch.object(core, 'service', return_value={'active': result}) as service:
+                self.ui.control()
+            service.assert_called_once_with(action)
+
+    def drain_jobs(self):
+        import time
+        from pulse_elite.gui import GLib
+        deadline = time.monotonic() + 3
+        while self.ui.busy and time.monotonic() < deadline:
+            while GLib.MainContext.default().iteration(False):
+                pass
+            time.sleep(0.005)
+        self.assertFalse(self.ui.busy)
+
+    def test_async_refresh_flushes_latest_edit(self):
+        import threading
+        ready = threading.Event()
+        self.ui.populate(self.state, self.outputs)
+        with patch.object(core, 'service') as service:
+            self.ui.job(lambda: ready.wait(2), lambda _: self.ui.populate(self.state, self.outputs))
+            self.ui.autostart.set_active(True)
+            self.ui.autostart.set_active(False)
+            self.ui.autostart.set_active(True)
+            ready.set()
+            self.drain_jobs()
+        service.assert_called_once_with('enable')
+        self.assertTrue(self.ui.autostart.get_active())
+        self.assertFalse(self.ui.dirty)
+
+    def test_failed_save_is_visible_and_retryable(self):
+        self.ui.populate(self.state, self.outputs)
+        with patch.object(core, 'service', side_effect=core.AppError('Cannot save login preference')):
+            self.ui.autostart.set_active(True)
+            self.drain_jobs()
+        self.assertTrue(self.ui.dirty)
+        self.assertIn('Cannot save', self.ui.message.get_text())
+        self.assertFalse(self.ui.toggle_button.get_sensitive())
+        with patch.object(core, 'service') as service:
+            self.ui.autostart.set_active(False)
+            self.drain_jobs()
+        service.assert_called_once_with('disable')
+        self.assertFalse(self.ui.dirty)

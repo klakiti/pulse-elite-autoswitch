@@ -5,9 +5,6 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib
 from . import core, __version__
 
-LABELS = {'connected': 'Headset connected', 'shutdown': 'Headset disconnecting',
-          'disconnected': 'Headset off / disconnected', 'adapter-absent': 'USB adapter disconnected',
-          'unknown': 'Cannot determine headset state'}
 
 
 class Setup(Gtk.Box):
@@ -16,6 +13,10 @@ class Setup(Gtk.Box):
         self.set_border_width(24)
         self.busy = False
         self.dirty = False
+        self.pending = set()
+        self.failed_changes = set()
+        self.running = False
+        self.legacy = False
         self.updating = False
         self.destroyed = False
         self.outputs = []
@@ -26,8 +27,13 @@ class Setup(Gtk.Box):
         intro = Gtk.Label(label='Your headset when connected. Your chosen output when it disconnects.', xalign=0)
         intro.set_line_wrap(True)
         self.pack_start(intro, False, False, 0)
-        self.status_label = Gtk.Label(label='Checking devices…', xalign=0)
-        self.pack_start(self.status_label, False, False, 0)
+        status_row = Gtk.Box(spacing=8)
+        self.indicator = Gtk.Label()
+        self.status_label = Gtk.Label(label='Disconnected', xalign=0)
+        self.indicator.set_markup('<span foreground="#c01c28">●</span>')
+        status_row.pack_start(self.indicator, False, False, 0)
+        status_row.pack_start(self.status_label, False, False, 0)
+        self.pack_start(status_row, False, False, 0)
         grid = Gtk.Grid(column_spacing=16, row_spacing=14)
         self.headset = Gtk.ComboBoxText()
         self.fallback = Gtk.ComboBoxText()
@@ -44,16 +50,12 @@ class Setup(Gtk.Box):
         self.autostart.connect('toggled', self.changed)
         self.pack_start(self.autostart, False, False, 0)
         buttons = Gtk.Box(spacing=8)
-        self.save_button = Gtk.Button(label='Save settings')
-        self.save_button.get_style_context().add_class('suggested-action')
-        self.start_button = Gtk.Button(label='Start switching')
-        self.pause_button = Gtk.Button(label='Pause')
+        self.toggle_button = Gtk.Button(label='Enable')
+        self.toggle_button.get_style_context().add_class('suggested-action')
         self.refresh_button = Gtk.Button(label='Refresh devices')
-        for b in (self.save_button, self.start_button, self.pause_button, self.refresh_button):
-            buttons.pack_start(b, False, False, 0)
-        self.save_button.connect('clicked', lambda *_: self.save())
-        self.start_button.connect('clicked', lambda *_: self.control('start'))
-        self.pause_button.connect('clicked', lambda *_: self.control('stop'))
+        for button in (self.toggle_button, self.refresh_button):
+            buttons.pack_start(button, False, False, 0)
+        self.toggle_button.connect('clicked', lambda *_: self.control())
         self.refresh_button.connect('clicked', lambda *_: self.refresh())
         self.pack_start(buttons, False, False, 0)
         self.migrate_button = Gtk.Button(label='Upgrade previous manual setup')
@@ -77,20 +79,31 @@ class Setup(Gtk.Box):
             GLib.source_remove(self.timer)
             self.timer = None
 
-    def changed(self, *_):
-        if not self.updating:
+    def changed(self, widget):
+        if not self.updating and not self.legacy:
             self.dirty = True
+            self.pending.update(self.failed_changes)
+            self.failed_changes.clear()
+            self.pending.add('autostart' if widget is self.autostart else 'devices')
+            self.save()
+
+    def update_controls(self):
+        self.toggle_button.set_label('Disable' if self.running else 'Enable')
+        self.toggle_button.set_sensitive(not self.busy and not self.legacy and
+                                         (self.running or not self.dirty))
+        self.refresh_button.set_sensitive(not self.busy)
+        for widget in (self.headset, self.fallback, self.autostart):
+            widget.set_sensitive(not self.legacy)
 
     def periodic(self):
         self.refresh()
         return not self.destroyed
 
-    def job(self, function, complete):
+    def job(self, function, complete, failed=None):
         if self.busy or self.destroyed:
             return
         self.busy = True
-        for b in (self.save_button, self.start_button, self.pause_button, self.refresh_button):
-            b.set_sensitive(False)
+        self.update_controls()
         def worker():
             try:
                 value, error = function(), None
@@ -100,12 +113,16 @@ class Setup(Gtk.Box):
                 if self.destroyed:
                     return False
                 self.busy = False
-                for b in (self.save_button, self.start_button, self.pause_button, self.refresh_button):
-                    b.set_sensitive(True)
+
                 if error:
                     self.message.set_text(error)
+                    if failed:
+                        failed()
                 else:
                     complete(value)
+                self.update_controls()
+                if self.pending:
+                    self.save()
                 return False
             GLib.idle_add(finish)
         threading.Thread(target=worker, daemon=True).start()
@@ -144,37 +161,53 @@ class Setup(Gtk.Box):
         if not self.dirty:
             self.autostart.set_active(state['service']['autostart'])
         self.updating = False
-        legacy = state['service'].get('legacy_installation', False)
+        legacy = self.legacy = state['service'].get('legacy_installation', False)
         self.migrate_button.set_visible(legacy)
-        running = state['service']['active'] == 'active'
-        self.status_label.set_text(LABELS.get(state.get('headset'), 'Checking headset…') + '\n' +
-                                   ('Automatic switching is running' if running else 'Automatic switching is paused'))
-        self.start_button.set_sensitive(not running)
-        self.pause_button.set_sensitive(running)
+        self.running = state['service']['active'] == 'active'
+        connected = state.get('headset') == 'connected'
+        self.status_label.set_text('Connected' if connected else 'Disconnected')
+        color = '#26a269' if connected else '#c01c28'
+        self.indicator.set_markup(f'<span foreground="{color}">●</span>')
+        self.update_controls()
         error = state.get('device_error') or state.get('audio_error') or state.get('daemon', {}).get('error') or state.get('configuration_error')
         if legacy:
             error = 'Previous manual installation detected. Upgrade it before using these controls; originals will be backed up.'
-            self.start_button.set_sensitive(False)
-            self.save_button.set_sensitive(False)
+
+        if state.get('headset') == 'unknown' and not error:
+            error = 'Unable to read headset status. Connection is not confirmed.'
         if not self.dirty:
-            self.message.set_text(error or 'Ready. Choose your fallback output and save your settings.')
+            self.message.set_text(error or 'Changes are saved automatically.')
 
     def save(self):
+        if self.busy or not self.pending or self.destroyed:
+            return
+        changes = self.pending.copy()
+        self.pending.clear()
         headset, fallback = self.headset.get_active_id(), self.fallback.get_active_id()
         autostart = self.autostart.get_active()
+        self.message.set_text('Saving…')
         def apply():
-            core.save_selection(headset, fallback)
-            core.service('enable' if autostart else 'disable')
+            if 'devices' in changes:
+                core.save_selection(headset, fallback)
+            if 'autostart' in changes:
+                core.service('enable' if autostart else 'disable')
         def done(_):
-            self.dirty = False
-            self.message.set_text('Settings saved. Use Start switching to begin, or Pause to stop.')
-        self.job(apply, done)
+            self.dirty = bool(self.pending)
+            self.message.set_text('Changes are saved automatically.')
+        def failed():
+            self.failed_changes.update(changes)
+            if self.pending:
+                self.pending.update(changes)
+                self.failed_changes.clear()
+        self.job(apply, done, failed)
 
-    def control(self, action):
-        if action == 'start' and self.dirty:
-            self.message.set_text('Save your device selections before starting.')
-            return
-        self.job(lambda: core.service(action), lambda _: self.refresh())
+    def control(self):
+        action = 'stop' if self.running else 'start'
+        def done(state):
+            self.running = state['active'] == 'active'
+            self.update_controls()
+            self.refresh()
+        self.job(lambda: core.service(action), done)
 
 
 def launch():
