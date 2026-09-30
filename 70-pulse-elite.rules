@@ -1,0 +1,2 @@
+# Allow the active local desktop user to access the PS Link control interface.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ecc", TAG+="uaccess"

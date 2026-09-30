@@ -1,0 +1,13 @@
+[Unit]
+Description=Switch between Pulse Elite headset and speakers
+After=pipewire.service wireplumber.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.local/bin/pulse-elite-autoswitch
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target
