@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Pulse Elite AutoSwitch
+Comment=Choose audio outputs and manage automatic headset switching
+Exec=pulse-elite-autoswitch gui
+Icon=audio-headphones
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=headset;audio;speakers;PlayStation;
+StartupNotify=true
