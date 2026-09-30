@@ -34,6 +34,21 @@ CLI operation still requires a reachable user audio session and suitable HID per
 
 Save stable device identities in a per-user configuration file, never transient PipeWire object IDs. Reuse the existing `headset_sink` and `speakers_sink` configuration keys initially for compatibility. If friendly names collide, show enough device information to distinguish the choices. Handle changes to audio profiles and node names without silently selecting a different physical device.
 
+## USB adapter unplug and reconnect behavior
+
+Adapter presence and headset wireless connection are separate states, both required for the first release:
+
+- If the USB adapter is unplugged, select the user's configured fallback output after confirming absence, even if the headset was still on.
+- If the adapter is absent at startup, use the fallback output and keep watching for its return.
+- Close stale HID handles and rediscover the adapter on reconnect; never rely on its previous hidraw number or PipeWire object ID.
+- On reconnect, wait for readable headset status and an available playback output. Switch to the Pulse Elite only after confirming the headset is connected; otherwise remain on the fallback output.
+- Handle USB resets and suspend/resume without rapid output changes or a permanently stuck detector.
+- Distinguish confirmed adapter absence from permission errors, failed reads, and unknown reports. An unreadable adapter must not automatically be treated as unplugged.
+- If the chosen fallback device is also absent, avoid repeatedly selecting a missing output or arbitrarily choosing another device. Show the condition in the UI/CLI, allow normal audio-server fallback behavior, and retry the configured output when it returns.
+- Report “Adapter disconnected” separately from “Headset off/disconnected” and “Cannot read adapter” in both interfaces.
+
+The current daemon already includes an `adapter-absent` path and device rediscovery. This is an implementation starting point, not evidence that physical unplug/replug recovery has been tested.
+
 ## Implementation sequence
 
 ### 1. Separate detection, routing, and configuration
@@ -78,7 +93,11 @@ Choose the GUI toolkit during implementation based on the target desktop and pac
 - CLI operation with display environment variables unset, plus noninteractive JSON output and exit codes.
 - Cross-interface consistency: CLI changes appear in the UI, UI changes appear in CLI output, and concurrent saves do not corrupt configuration.
 - Headset power-on and power-off with playback already running.
-- Login, reboot, suspend/resume, adapter unplug/replug, and PipeWire restart.
+- Login, reboot, suspend/resume, and PipeWire restart.
+- Unplug the adapter during active headset playback: existing playback moves to the configured fallback output.
+- Start with the adapter absent, then reconnect it with the headset on and with it off; routing follows the confirmed state without restarting the app.
+- Replug into a different USB port, repeat quick unplug/replug cycles, and confirm device rediscovery when HID/PipeWire IDs change.
+- Unplug the adapter while the fallback device is also absent, then reconnect devices in either order; recover without selecting an arbitrary output.
 - Fallback device absent at login, disconnected during use, and later reconnected.
 - Unknown HID reports, transient read failures, and active-session permissions.
 - Charging and wireless-link loss; do not assume these match intentional power-off.
@@ -87,7 +106,7 @@ Choose the GUI toolkit during implementation based on the target desktop and pac
 
 ## Acceptance criteria
 
-A user on the supported system can install the package, select their alternative playback device, and enable switching entirely through either the desktop UI or the CLI. The UI workflow requires no terminal commands after installation; the CLI workflow requires no graphical display or manual configuration-file editing. Both interfaces operate on the same saved configuration and service. Existing playback follows confirmed headset connection changes. The app starts when the user chooses, preserves volume and microphone settings, and provides a clear way to pause or disable it.
+A user on the supported system can install the package, select their alternative playback device, and enable switching entirely through either the desktop UI or the CLI. The UI workflow requires no terminal commands after installation; the CLI workflow requires no graphical display or manual configuration-file editing. Both interfaces operate on the same saved configuration and service. Existing playback follows confirmed headset connection changes and confirmed USB adapter removal. Reconnecting the adapter recovers automatically without restarting the app. The app starts when the user chooses, preserves volume and microphone settings, and provides a clear way to pause or disable it.
 
 Hardware support must remain scoped to the validated adapter ID `054c:0ecc` until additional revisions are tested. Document unverified firmware behavior rather than treating the observed protocol as universal.
 
