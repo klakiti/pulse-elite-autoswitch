@@ -6,19 +6,22 @@ from . import __version__, core
 
 
 def parser():
-    p = argparse.ArgumentParser(description='Automatic Pulse Elite audio switching')
+    p = argparse.ArgumentParser(prog='ps-pulse', description='PS-Pulse: automatic headset audio switching')
     p.add_argument('--version', action='version', version=__version__)
     p.add_argument('--config', type=Path, help='Custom config for foreground use; service uses the default path')
     sub = p.add_subparsers(dest='action', required=True)
     for name in ('devices', 'status', 'show-config'):
-        sub.add_parser(name).add_argument('--json', action='store_true')
+        sub.add_parser(name, help={'devices': 'List available audio outputs', 'status': 'Show switching and headset status', 'show-config': 'Show selected output devices'}[name]).add_argument('--json', action='store_true')
     configure = sub.add_parser('configure', help='Pick outputs interactively or provide their node names')
     configure.add_argument('--headset', default='auto')
     configure.add_argument('--fallback')
     configure.add_argument('--json', action='store_true')
-    for name in ('start', 'pause', 'resume', 'restart', 'enable', 'disable'):
-        sub.add_parser(name, help={'enable': 'Enable start-at-login without starting now',
-                                  'disable': 'Disable start-at-login without stopping now'}.get(name, name))
+    for name, help_text in (('start', 'Start automatic switching'), ('stop', 'Stop automatic switching'),
+                            ('restart', 'Restart automatic switching')):
+        sub.add_parser(name, help=help_text).add_argument('--json', action='store_true')
+    autostart = sub.add_parser('autostart', help='Control automatic startup at login')
+    autostart.add_argument('setting', choices=('enable', 'disable'))
+    autostart.add_argument('--json', action='store_true')
     for name in ('run', 'dry-run'):
         cmd = sub.add_parser(name)
         cmd.add_argument('--duration', type=float, help='Stop after this many seconds')
@@ -40,7 +43,7 @@ def choose(available, headset, fallback):
         if not options:
             raise core.AppError('No fallback outputs found.')
         for i, s in enumerate(options, 1):
-            print(f"{i}. {s['label']}\n   {s['name']}")
+            print(f"{i}. {s['label']}")
         try:
             number = int(input('Fallback output number: '))
             if not 1 <= number <= len(options):
@@ -78,16 +81,41 @@ def main(argv=None):
             try:
                 from .gui import launch
             except ImportError:
-                raise core.AppError('Install pulse-elite-autoswitch-desktop to use the UI.')
+                raise core.AppError('Install ps-pulse-desktop to use the UI.')
             launch()
         elif args.action == 'migrate':
             result = core.migrate()
         else:
             if args.config:
                 raise core.AppError('Service controls use the default configuration; omit --config.')
-            result = core.service({'pause': 'stop', 'resume': 'start'}.get(args.action, args.action))
+            result = core.service(args.setting if args.action == 'autostart' else args.action)
         if result is not None:
-            if args.action == 'devices' and not args.json:
+            if getattr(args, 'json', False):
+                print(json.dumps(result, indent=2))
+            elif args.action in ('start', 'stop', 'restart'):
+                print({'start': 'Switching started.', 'stop': 'Switching stopped.',
+                       'restart': 'Switching restarted.'}[args.action])
+            elif args.action == 'autostart':
+                print('Start at login ' + ('enabled.' if args.setting == 'enable' else 'disabled.'))
+            elif args.action == 'status':
+                service = result['service']
+                print('Switching: ' + ('running' if service['active'] == 'active' else 'stopped'))
+                print('Headset: ' + ('connected' if result.get('headset') == 'connected' else
+                                    'unknown' if result.get('headset') == 'unknown' else 'disconnected'))
+                print('Start at login: ' + ('enabled' if service['autostart'] else 'disabled'))
+                output = result.get('daemon', {}).get('last_selected_output')
+                if output:
+                    print('Output: ' + output)
+                errors = [service.get('error'), result.get('device_error'), result.get('configuration_error'),
+                          result.get('daemon', {}).get('error')]
+                for error in dict.fromkeys(e for e in errors if e):
+                    print('Notice: ' + error)
+            elif args.action == 'configure':
+                print('Output devices saved. Run ps-pulse start to begin switching.')
+            elif args.action == 'show-config':
+                print('Headset: ' + result['headset_sink'])
+                print('Fallback: ' + result['speakers_sink'])
+            elif args.action == 'devices':
                 for s in result:
                     print(f"{s['label']}{' [Pulse Elite]' if s['is_headset'] else ''}\n  {s['name']}")
             else:

@@ -22,7 +22,7 @@ class Setup(Gtk.Box):
         self.outputs = []
         self.connect('destroy', self.on_destroy)
         title = Gtk.Label(xalign=0)
-        title.set_markup('<span size="xx-large" weight="bold">Pulse Elite AutoSwitch</span>')
+        title.set_markup('<span size="xx-large" weight="bold">PS-Pulse</span>')
         self.pack_start(title, False, False, 0)
         intro = Gtk.Label(label='Your headset when connected. Your chosen output when it disconnects.', xalign=0)
         intro.set_line_wrap(True)
@@ -213,7 +213,7 @@ class Setup(Gtk.Box):
 def launch():
     if not Gtk.init_check()[0]:
         raise core.AppError('No graphical display. Use the CLI configure command instead.')
-    window = Gtk.Window(title='Pulse Elite AutoSwitch')
+    window = Gtk.Window(title='PS-Pulse')
     window.set_default_size(660, 430)
     window.add(Setup())
     window.connect('destroy', Gtk.main_quit)

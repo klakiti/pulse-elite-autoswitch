@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Pulse Elite AutoSwitch
+Name=PS-Pulse
 Comment=Choose audio outputs and manage automatic headset switching
-Exec=/usr/bin/pulse-elite-autoswitch gui
+Exec=/usr/bin/ps-pulse gui
 Icon=audio-headphones
 Terminal=false
 Categories=Settings;HardwareSettings;

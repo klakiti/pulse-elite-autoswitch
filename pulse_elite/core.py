@@ -47,7 +47,7 @@ def load_config(path=None):
     try:
         value = json.loads(Path(path or config_path()).read_text())
     except FileNotFoundError:
-        raise AppError('Not configured. Open the setup app or run: pulse-elite-autoswitch configure')
+        raise AppError('Not configured. Open the setup app or run: ps-pulse configure')
     except (OSError, ValueError) as exc:
         raise AppError(f'Cannot read configuration: {exc}')
     if not isinstance(value, dict):
@@ -258,7 +258,7 @@ def status(path=None):
 
 def migrate(packaged_unit=None):
     packaged = Path(packaged_unit) if packaged_unit else Path('/usr/lib/systemd/user') / UNIT
-    if not packaged.exists() or '/usr/bin/pulse-elite-autoswitch run' not in packaged.read_text():
+    if not packaged.exists() or not any(command in packaged.read_text() for command in ('/usr/bin/ps-pulse run', '/usr/bin/pulse-elite-autoswitch run')):
         raise AppError('Install the new core package before migrating.')
     paths = [Path.home() / '.local/bin/pulse-elite-autoswitch',
              config_path().parent.parent / 'systemd/user' / UNIT]

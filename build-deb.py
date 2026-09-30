@@ -24,10 +24,10 @@ def put(stage, destination, source=None, text=None, mode=0o644):
 def build(output):
     output.mkdir(parents=True, exist_ok=True)
     for desktop in (False, True):
-        name = 'pulse-elite-autoswitch' + ('-desktop' if desktop else '')
+        name = 'ps-pulse' + ('-desktop' if desktop else '')
         with tempfile.TemporaryDirectory(prefix='pulse-elite-deb-') as temp:
             stage = Path(temp)
-            depends = f'pulse-elite-autoswitch (= {__version__}), python3-gi, gir1.2-gtk-3.0' if desktop else 'python3 (>= 3.10), pipewire-bin, wireplumber, systemd, udev'
+            depends = f'ps-pulse (= {__version__}), python3-gi, gir1.2-gtk-3.0' if desktop else 'python3 (>= 3.10), pipewire-bin, wireplumber, systemd, udev'
             put(stage, 'DEBIAN/control', text=f'''Package: {name}
 Version: {__version__}
 Section: sound
@@ -35,6 +35,8 @@ Priority: optional
 Architecture: all
 Maintainer: klakiti <127831506+klakiti@users.noreply.github.com>
 Depends: {depends}
+Conflicts: {'pulse-elite-autoswitch-desktop' if desktop else 'pulse-elite-autoswitch'}
+Replaces: {'pulse-elite-autoswitch-desktop' if desktop else 'pulse-elite-autoswitch'}
 Homepage: https://github.com/klakiti/pulse-elite-autoswitch
 Description: Automatic Sony Pulse Elite audio output switching
  {'Optional GTK desktop configuration interface.' if desktop else 'User-session daemon and CLI using PlayStation Link HID connection status.'}
@@ -43,9 +45,9 @@ Description: Automatic Sony Pulse Elite audio output switching
             for module in modules:
                 put(stage, 'usr/lib/pulse-elite-autoswitch/pulse_elite/' + module, 'pulse_elite/' + module)
             if desktop:
-                put(stage, 'usr/share/applications/pulse-elite-autoswitch.desktop', 'packaging/pulse-elite-autoswitch.desktop')
+                put(stage, 'usr/share/applications/ps-pulse.desktop', 'packaging/pulse-elite-autoswitch.desktop')
             else:
-                put(stage, 'usr/bin/pulse-elite-autoswitch', 'packaging/pulse-elite-autoswitch', mode=0o755)
+                put(stage, 'usr/bin/ps-pulse', 'packaging/pulse-elite-autoswitch', mode=0o755)
                 put(stage, 'usr/lib/systemd/user/pulse-elite-autoswitch.service', 'pulse-elite-autoswitch.service')
                 put(stage, 'usr/lib/udev/rules.d/70-pulse-elite.rules', '70-pulse-elite.rules')
                 put(stage, 'DEBIAN/postinst', text='''#!/bin/sh

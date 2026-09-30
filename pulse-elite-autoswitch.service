@@ -4,7 +4,7 @@ After=pipewire.service wireplumber.service
 ConditionPathExists=%E/pulse-elite-autoswitch/config.json
 
 [Service]
-ExecStart=/usr/bin/pulse-elite-autoswitch run
+ExecStart=/usr/bin/ps-pulse run
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=yes

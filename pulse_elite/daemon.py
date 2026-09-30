@@ -31,7 +31,7 @@ def run(path=None, dry_run=False, duration=None):
         route_error = None
         try:
             while running[0]:
-                if str(Path(__file__).resolve()).startswith("/usr/lib/pulse-elite-autoswitch/") and not Path("/usr/bin/pulse-elite-autoswitch").exists():
+                if str(Path(__file__).resolve()).startswith("/usr/lib/pulse-elite-autoswitch/") and not Path("/usr/bin/ps-pulse").exists():
                     logging.info("Package removed; stopping")
                     break
                 now = time.clock_gettime(time.CLOCK_BOOTTIME)

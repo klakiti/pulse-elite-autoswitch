@@ -3,7 +3,7 @@
 set -euo pipefail
 
 main() {
-    local version=0.1.4
+    local version=0.2.0
     local base="https://github.com/klakiti/pulse-elite-autoswitch/releases/download/v${version}"
     local desktop=true download_only=false arg stage package cleanup
     for arg in "$@"; do
@@ -37,8 +37,8 @@ main() {
     trap "$cleanup" EXIT
     # apt's download user needs to read these non-sensitive release artifacts.
     chmod 755 "$stage"
-    local packages=("pulse-elite-autoswitch_${version}_all.deb")
-    if "$desktop"; then packages+=("pulse-elite-autoswitch-desktop_${version}_all.deb"); fi
+    local packages=("ps-pulse_${version}_all.deb")
+    if "$desktop"; then packages+=("ps-pulse-desktop_${version}_all.deb"); fi
     curl --fail --silent --show-error --location --retry 3 "$base/SHA256SUMS" -o "$stage/SHA256SUMS"
     local paths=()
     for package in "${packages[@]}"; do
@@ -68,9 +68,9 @@ PY
         systemctl --user daemon-reload
         if "$was_active"; then systemctl --user restart pulse-elite-autoswitch.service; fi
         if "$desktop"; then
-            printf '\nInstalled. Open Pulse Elite AutoSwitch from your applications menu, choose a fallback output, and click Enable.\n'
+            printf '\nInstalled. Open PS-Pulse from your applications menu, choose a fallback output, and click Enable.\n'
         else
-            printf '\nInstalled. Run pulse-elite-autoswitch configure, then pulse-elite-autoswitch start.\n'
+            printf '\nInstalled. Run ps-pulse configure, then ps-pulse start.\n'
         fi
     fi
     rm -rf -- "$stage"

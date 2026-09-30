@@ -21,7 +21,7 @@ class InstallerTests(unittest.TestCase):
         self.log = self.root / 'commands'
         version = (INSTALLER.parent / 'pulse_elite/__init__.py').read_text().split("'")[1]
         self.packages = [f'{name}_{version}_all.deb' for name in
-                         ('pulse-elite-autoswitch', 'pulse-elite-autoswitch-desktop')]
+                         ('ps-pulse', 'ps-pulse-desktop')]
         for name in self.packages:
             (self.assets / name).write_bytes(b'fixture package')
         self.manifest = ''.join(hashlib.sha256(b'fixture package').hexdigest() + '  ' + name + '\n'
