@@ -176,7 +176,7 @@ class Setup(Gtk.Box):
         if state.get('headset') == 'unknown' and not error:
             error = 'Unable to read headset status. Connection is not confirmed.'
         if not self.dirty:
-            self.message.set_text(error or 'Changes are saved automatically.')
+            self.message.set_text(error or '')
 
     def save(self):
         if self.busy or not self.pending or self.destroyed:
@@ -193,7 +193,7 @@ class Setup(Gtk.Box):
                 core.service('enable' if autostart else 'disable')
         def done(_):
             self.dirty = bool(self.pending)
-            self.message.set_text('Changes are saved automatically.')
+            self.message.set_text('')
         def failed():
             self.failed_changes.update(changes)
             if self.pending:
