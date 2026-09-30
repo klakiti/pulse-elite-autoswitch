@@ -163,3 +163,28 @@ class AdapterTests(unittest.TestCase):
             self.assertEqual(open_device.call_count, 2)
             close_device.assert_called_once_with(100)
             adapter.close()
+
+class MigrationTests(unittest.TestCase):
+    def test_migration_backs_up_originals_and_does_not_start_unconfigured(self):
+        import os
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            exe = home / '.local/bin/pulse-elite-autoswitch'
+            unit = home / '.config/systemd/user' / core.UNIT
+            packaged = home / 'packaged.service'
+            packaged.write_text('ExecStart=/usr/bin/pulse-elite-autoswitch run\n')
+            for path in (exe, unit):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('old pulse-elite-autoswitch setup')
+            with patch.object(Path, 'home', return_value=home), \
+                 patch.dict(os.environ, {'XDG_CONFIG_HOME': str(home / '.config')}), \
+                 patch.object(core, 'service_status', return_value={'active': 'active', 'autostart': True}), \
+                 patch.object(core, 'command') as command:
+                result = core.migrate(packaged)
+            self.assertFalse(exe.exists())
+            self.assertFalse(unit.exists())
+            self.assertEqual((Path(result['backup']) / exe.name).read_text(), 'old pulse-elite-autoswitch setup')
+            self.assertEqual((Path(result['backup']) / unit.name).read_text(), 'old pulse-elite-autoswitch setup')
+            self.assertFalse(result['configured'])
+            calls = [c.args[0] for c in command.call_args_list]
+            self.assertEqual(calls, [['systemctl','--user','disable','--now',core.UNIT], ['systemctl','--user','daemon-reload']])

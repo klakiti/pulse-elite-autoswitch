@@ -256,8 +256,8 @@ def status(path=None):
     return result
 
 
-def migrate():
-    packaged = Path('/usr/lib/systemd/user') / UNIT
+def migrate(packaged_unit=None):
+    packaged = Path(packaged_unit) if packaged_unit else Path('/usr/lib/systemd/user') / UNIT
     if not packaged.exists() or '/usr/bin/pulse-elite-autoswitch run' not in packaged.read_text():
         raise AppError('Install the new core package before migrating.')
     paths = [Path.home() / '.local/bin/pulse-elite-autoswitch',
