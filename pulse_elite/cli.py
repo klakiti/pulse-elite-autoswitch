@@ -5,25 +5,55 @@ import sys
 from . import __version__, core
 
 
+class HelpParser(argparse.ArgumentParser):
+    """Show available arguments for an unfinished command; reject invalid input."""
+    def error(self, message):
+        if 'the following arguments are required:' in message or 'expected one argument' in message:
+            self.print_help()
+            self.exit(0)
+        super().error(message)
+
+
+def question_help(root, words):
+    """Resolve a help-only command path without executing any command."""
+    current = root
+    index = 0
+    while index < len(words):
+        word = words[index]
+        option = current._option_string_actions.get(word)
+        if option is not None:
+            index += 1 if option.nargs == 0 else 2
+            continue
+        sub = next((a for a in current._actions if isinstance(a, argparse._SubParsersAction)), None)
+        if sub is not None and word in sub.choices:
+            current = sub.choices[word]
+        else:
+            current.error('unrecognized argument: ' + word)
+        index += 1
+    current.print_help()
+
+
 def parser():
-    p = argparse.ArgumentParser(prog='ps-pulse', description='PS-Pulse: automatic headset audio switching')
+    p = HelpParser(prog='ps-pulse', description='PS-Pulse: automatic headset audio switching')
     p.add_argument('--version', action='version', version=__version__)
     p.add_argument('--config', type=Path, help='Custom config for foreground use; service uses the default path')
     sub = p.add_subparsers(dest='action', required=True)
     for name in ('devices', 'status', 'show-config'):
-        sub.add_parser(name, help={'devices': 'List available audio outputs', 'status': 'Show switching and headset status', 'show-config': 'Show selected output devices'}[name]).add_argument('--json', action='store_true')
+        sub.add_parser(name, help={'devices': 'List available audio outputs', 'status': 'Show switching and headset status', 'show-config': 'Show selected output devices'}[name]).add_argument('--json', action='store_true', help='Print full machine-readable JSON')
     configure = sub.add_parser('configure', help='Pick outputs interactively or provide their node names')
-    configure.add_argument('--headset', default='auto')
-    configure.add_argument('--fallback')
-    configure.add_argument('--json', action='store_true')
+    configure.add_argument('--headset', default='auto', metavar='NODE', help='Headset output node (default: automatic detection)')
+    configure.add_argument('--fallback', metavar='NODE', help='Output to use when the headset disconnects')
+    configure.add_argument('--json', action='store_true', help='Print full machine-readable JSON')
     for name, help_text in (('start', 'Start automatic switching'), ('stop', 'Stop automatic switching'),
                             ('restart', 'Restart automatic switching')):
-        sub.add_parser(name, help=help_text).add_argument('--json', action='store_true')
+        sub.add_parser(name, help=help_text).add_argument('--json', action='store_true', help='Print full machine-readable JSON')
     autostart = sub.add_parser('autostart', help='Control automatic startup at login')
-    autostart.add_argument('setting', choices=('enable', 'disable'))
-    autostart.add_argument('--json', action='store_true')
+    settings = autostart.add_subparsers(dest='setting', required=True)
+    for name, text in (('enable', 'Start switching automatically at login'),
+                       ('disable', 'Do not start switching automatically at login')):
+        settings.add_parser(name, help=text).add_argument('--json', action='store_true', help='Print full machine-readable JSON')
     for name in ('run', 'dry-run'):
-        cmd = sub.add_parser(name)
+        cmd = sub.add_parser(name, help='Run switching in the foreground' if name == 'run' else 'Preview routing without changing outputs')
         cmd.add_argument('--duration', type=float, help='Stop after this many seconds')
     sub.add_parser('gui', help='Open the optional desktop setup window')
     sub.add_parser('migrate', help='Back up and retire the previous manual installation after package installation')
@@ -56,7 +86,12 @@ def choose(available, headset, fallback):
 
 
 def main(argv=None):
-    args = parser().parse_args(argv)
+    words = list(sys.argv[1:] if argv is None else argv)
+    root = parser()
+    if words and words[-1] == '?':
+        question_help(root, words[:-1])
+        return 0
+    args = root.parse_args(words)
     try:
         result = None
         if args.action == 'devices':
