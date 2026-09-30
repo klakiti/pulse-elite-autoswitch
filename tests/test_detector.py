@@ -25,13 +25,21 @@ def configured():
 
 class DetectorTests(unittest.TestCase):
     def test_reports_with_variable_other_bytes(self):
-        for flag, expected in ((0x10, 'connected'), (0x20, 'shutdown')):
+        for flag, expected in ((0x10, 'connected'), (0x30, 'connected'), (0x20, 'shutdown')):
             for value in (0, 6, 255):
                 self.assertEqual(core.classify(bytes((0x82, 1, flag, value)) + bytes(30)), expected)
         self.assertEqual(core.classify(bytes((0x82,)) + bytes(33)), 'disconnected')
 
+    def test_confirmed_alternate_connected_report_routes_to_headset(self):
+        report = bytes((0x82, 1, 0x30, 6)) + bytes(30)
+        router = core.Router()
+        self.assertEqual([router.observe(core.classify(report)) for _ in range(3)],
+                         [None, None, 'headset'])
+        self.assertEqual([router.observe(core.classify(bytes((0x82,)) + bytes(33)))
+                          for _ in range(3)], [None, None, 'fallback'])
+
     def test_unknown_reports_never_guess_off(self):
-        for report in (b'', b'\x82', bytes(34), bytes((0x82, 1, 0x30)) + bytes(31), bytes((0x82, 2, 0x10)) + bytes(31)):
+        for report in (b'', b'\x82', bytes(34), bytes((0x82, 1, 0x40)) + bytes(31), bytes((0x82, 2, 0x10)) + bytes(31)):
             self.assertEqual(core.classify(report), 'unknown')
 
     def test_debounce_and_unknown_interrupts_confirmation(self):

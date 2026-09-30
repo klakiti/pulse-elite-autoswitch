@@ -130,7 +130,7 @@ def classify(raw):
         return 'unknown'
     if not any(raw[1:]):
         return 'disconnected'
-    return {(1, 0x10): 'connected', (1, 0x20): 'shutdown'}.get(tuple(raw[1:3]), 'unknown')
+    return {(1, 0x10): 'connected', (1, 0x30): 'connected', (1, 0x20): 'shutdown'}.get(tuple(raw[1:3]), 'unknown')
 
 
 class Adapter:
