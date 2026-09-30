@@ -1,0 +1,107 @@
+import argparse
+import json
+from pathlib import Path
+import sys
+from . import __version__, core
+
+
+def parser():
+    p = argparse.ArgumentParser(description='Automatic Pulse Elite audio switching')
+    p.add_argument('--version', action='version', version=__version__)
+    p.add_argument('--config', type=Path, help='Custom config for foreground use; service uses the default path')
+    sub = p.add_subparsers(dest='action', required=True)
+    for name in ('devices', 'status', 'show-config'):
+        sub.add_parser(name).add_argument('--json', action='store_true')
+    configure = sub.add_parser('configure', help='Pick outputs interactively or provide their node names')
+    configure.add_argument('--headset', default='auto')
+    configure.add_argument('--fallback')
+    configure.add_argument('--json', action='store_true')
+    for name in ('start', 'pause', 'resume', 'restart', 'enable', 'disable'):
+        sub.add_parser(name, help={'enable': 'Enable start-at-login without starting now',
+                                  'disable': 'Disable start-at-login without stopping now'}.get(name, name))
+    for name in ('run', 'dry-run'):
+        cmd = sub.add_parser(name)
+        cmd.add_argument('--duration', type=float, help='Stop after this many seconds')
+    sub.add_parser('gui', help='Open the optional desktop setup window')
+    sub.add_parser('migrate', help='Back up and retire the previous manual installation after package installation')
+    return p
+
+
+def choose(available, headset, fallback):
+    candidates = [s for s in available if s['is_headset']]
+    if headset == 'auto':
+        if len(candidates) != 1:
+            raise core.AppError('Connect one supported adapter and activate its audio output, or specify --headset.')
+        headset = candidates[0]['name']
+    if not fallback:
+        if not sys.stdin.isatty():
+            raise core.AppError('Noninteractive setup requires --fallback NODE_NAME. Use devices --json to list outputs.')
+        options = [s for s in available if not s['is_headset']]
+        if not options:
+            raise core.AppError('No fallback outputs found.')
+        for i, s in enumerate(options, 1):
+            print(f"{i}. {s['label']}\n   {s['name']}")
+        try:
+            number = int(input('Fallback output number: '))
+            if not 1 <= number <= len(options):
+                raise ValueError()
+            fallback = options[number - 1]['name']
+        except (ValueError, EOFError):
+            raise core.AppError('Choose a valid output number.')
+    return core.make_config(headset, fallback, available)
+
+
+
+def main(argv=None):
+    args = parser().parse_args(argv)
+    try:
+        result = None
+        if args.action == 'devices':
+            result = core.sinks()
+        elif args.action == 'status':
+            result = core.status(args.config)
+        elif args.action == 'show-config':
+            result = core.load_config(args.config)
+        elif args.action == 'configure':
+            if args.json and not args.fallback:
+                raise core.AppError('--json configuration requires --fallback.')
+            result = choose(core.sinks(), args.headset, args.fallback)
+            core.atomic_json(args.config or core.config_path(), result)
+        elif args.action in ('run', 'dry-run'):
+            if args.duration is not None and args.duration <= 0:
+                raise core.AppError('Duration must be positive.')
+            from .daemon import run
+            run(args.config, args.action == 'dry-run', args.duration)
+        elif args.action == 'gui':
+            if args.config:
+                raise core.AppError('The desktop UI uses the default configuration path.')
+            try:
+                from .gui import launch
+            except ImportError:
+                raise core.AppError('Install pulse-elite-autoswitch-desktop to use the UI.')
+            launch()
+        elif args.action == 'migrate':
+            result = core.migrate()
+        else:
+            if args.config:
+                raise core.AppError('Service controls use the default configuration; omit --config.')
+            result = core.service({'pause': 'stop', 'resume': 'start'}.get(args.action, args.action))
+        if result is not None:
+            if args.action == 'devices' and not args.json:
+                for s in result:
+                    print(f"{s['label']}{' [Pulse Elite]' if s['is_headset'] else ''}\n  {s['name']}")
+            else:
+                print(json.dumps(result, indent=2))
+        return 0
+    except (core.AppError, OSError) as exc:
+        if getattr(args, 'json', False):
+            print(json.dumps({'error': str(exc)}))
+        else:
+            print(f'Error: {exc}', file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
