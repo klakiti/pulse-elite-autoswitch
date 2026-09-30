@@ -11,7 +11,17 @@
 
 Tests using simulated hardware state verify policy, not the physical timing or firmware behavior of an unplug event.
 
-## Hardware acceptance before merging/releasing
+## Confirmed on hardware (2026-09-30)
+
+- Both v0.1.0 Debian packages installed successfully on Zorin OS 18.1 after the original manual switcher was removed.
+- Saved headset/fallback configuration and the start-at-login preference survived a computer reboot, as reported by the user and verified afterward.
+- The packaged systemd user service started automatically in the new boot and was active, using the packaged unit rather than the old manual unit.
+- Device permissions were temporarily unavailable early in login; the daemon recovered automatically, selected the configured speakers, and then selected the Pulse Elite after the headset connected.
+- Post-reboot status showed a connected headset with no current device or daemon errors.
+
+This confirms fresh package installation and reboot/startup recovery on the tested PC. It does not establish physical adapter unplug/replug, suspend/resume, package upgrade/removal, or migration-helper acceptance.
+
+## Hardware acceptance checklist before merging/releasing
 
 1. Install core and desktop packages with apt; confirm first install does not enable routing.
 2. On the development PC, migrate the old manual setup; verify backups and no duplicate daemon.
@@ -24,4 +34,4 @@ Tests using simulated hardware state verify policy, not the physical timing or f
 9. Test core-only installation without graphical dependencies; verify all setup and control tasks through the CLI.
 10. Test upgrades and removal. Confirm configuration survives, routing stops on removal, and the application disappears from the desktop menu.
 
-Physical acceptance tests remain pending for this first candidate. Keep the existing installation available until the user completes the transition.
+Package installation and reboot/startup recovery are confirmed above. Other checklist items remain pending unless explicitly confirmed; the original manual installation was removed before the fresh package installation.

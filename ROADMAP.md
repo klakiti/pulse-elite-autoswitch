@@ -115,8 +115,8 @@ Hardware support must remain scoped to the validated adapter ID `054c:0ecc` unti
 - The v0.1 feature branch includes a shared Python core, CLI, GTK desktop UI, migration helper, user service, udev rule, separate Debian packages, and expanded automated tests.
 - Repeated headset cycles and live Chrome playback switching were verified on Zorin OS 18.1, PipeWire 1.0.5, and WirePlumber 0.4.17.
 - `PROTOCOL.md` records the observed status signatures and remaining uncertainty.
-- Reboot, suspend/resume, hot-unplug recovery, and package installation have not yet been validated on hardware.
-- The original machine-specific service remains a separate installation; publishing the configurable source did not replace it.
+- Fresh v0.1 package installation and reboot/start-at-login recovery are confirmed on the test PC. Suspend/resume, physical hot-unplug recovery, upgrades, and package removal remain pending.
+- The original machine-specific installation was removed, and the v0.1 packages are now installed and running on the test PC.
 - Before changing an existing installation, inspect its active user unit, executable, configuration, and udev rule. Do not assume the administrator-only rule installation has been completed.
 
 Suggested continuation request: "Continue the installable package milestone in ROADMAP.md, beginning with the shared configuration/control layer, complete CLI, desktop device-selection UI, and Debian packaging for Zorin/Ubuntu."
