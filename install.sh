@@ -3,7 +3,7 @@
 set -euo pipefail
 
 main() {
-    local version=0.2.2
+    local version=1.0.0
     local base="https://github.com/klakiti/pulse-elite-autoswitch/releases/download/v${version}"
     local desktop=true download_only=false arg stage package cleanup
     for arg in "$@"; do
@@ -31,6 +31,17 @@ main() {
         systemctl --user show-environment >/dev/null || {
             printf 'Run from a terminal inside your logged-in desktop session.\n' >&2; return 1;
         }
+    fi
+    # A desktop package depends on the matching core version. Preserve an
+    # existing desktop installation even when the user invokes --cli to upgrade.
+    if ! "$download_only" && ! "$desktop"; then
+        for package in ps-pulse-desktop pulse-elite-autoswitch-desktop; do
+            if [[ $(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null || true) == installed ]]; then
+                desktop=true
+                printf 'Updating the existing desktop package along with the CLI.\n'
+                break
+            fi
+        done
     fi
     stage=$(mktemp -d)
     printf -v cleanup 'rm -rf -- %q' "$stage"

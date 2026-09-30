@@ -20,7 +20,7 @@ class HelpParser(argparse.ArgumentParser):
         self._positionals.title = 'arguments'
 
     def error(self, message):
-        if 'the following arguments are required:' in message or 'expected one argument' in message:
+        if 'expected one argument' in message:
             self.print_help()
             self.exit(0)
         super().error(message)
@@ -49,7 +49,7 @@ def parser():
     p = HelpParser(prog='ps-pulse', description='PS-Pulse: automatic headset audio switching')
     p.add_argument('--version', action='version', version=__version__)
     p.add_argument('--config', type=Path, help='Custom config for foreground use; service uses the default path')
-    sub = p.add_subparsers(dest='action', required=True)
+    sub = p.add_subparsers(dest='action')
     for name in ('devices', 'status', 'show-config'):
         sub.add_parser(name, help={'devices': 'List available audio outputs', 'status': 'Show switching and headset status', 'show-config': 'Show selected output devices'}[name]).add_argument('--json', action='store_true', help='Print full machine-readable JSON')
     configure = sub.add_parser('configure', help='Pick outputs interactively or provide their node names')
@@ -60,7 +60,7 @@ def parser():
                             ('restart', 'Restart automatic switching')):
         sub.add_parser(name, help=help_text).add_argument('--json', action='store_true', help='Print full machine-readable JSON')
     autostart = sub.add_parser('autostart', help='Control automatic startup at login')
-    settings = autostart.add_subparsers(dest='setting', required=True)
+    settings = autostart.add_subparsers(dest='setting')
     for name, text in (('enable', 'Start switching automatically at login'),
                        ('disable', 'Do not start switching automatically at login')):
         settings.add_parser(name, help=text).add_argument('--json', action='store_true', help='Print full machine-readable JSON')
@@ -104,6 +104,12 @@ def main(argv=None):
         question_help(root, words[:-1])
         return 0
     args = root.parse_args(words)
+    if args.action is None:
+        root.print_help()
+        return 0
+    if args.action == 'autostart' and args.setting is None:
+        question_help(root, ['autostart'])
+        return 0
     try:
         result = None
         if args.action == 'devices':

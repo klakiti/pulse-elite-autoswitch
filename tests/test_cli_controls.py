@@ -67,3 +67,9 @@ class CliControlTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as raised:
             cli.main(['autostart', 'typo'])
         self.assertEqual(raised.exception.code, 2)
+
+    def test_unknown_option_without_command_remains_an_error(self):
+        for args in (['--typo'], ['autostart', '--typo']):
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as raised:
+                cli.main(args)
+            self.assertEqual(raised.exception.code, 2)

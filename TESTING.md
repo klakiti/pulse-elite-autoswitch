@@ -36,3 +36,9 @@ This confirms fresh package installation and reboot/startup recovery on the test
 10. Test upgrades and removal. Confirm configuration survives, routing stops on removal, and the application disappears from the desktop menu.
 
 Package installation, reboot/startup recovery, and a physical unplug/replug cycle during playback are confirmed above. Other checklist items remain pending unless explicitly confirmed; the original manual installation was removed before the fresh package installation.
+
+## Version 1.0.0 release review
+
+The user confirmed successful one-command installation and operation of the desktop and CLI packages, package upgrades, removal, reinstall, concise CLI controls, and contextual help during the 0.1/0.2 preview series. Version 1 retains those behaviors and adds regression coverage for closing during pending UI writes, invalid incomplete CLI input, and preserving an installed desktop package during a CLI upgrade.
+
+The historical checklist above is broader than the v1 release gate. Suspend/resume, additional reconnect combinations, other distributions/firmware, and a physical migration from the old handwritten installation remain unverified. Unit tests and mocked installer tests do not substitute for those hardware checks.

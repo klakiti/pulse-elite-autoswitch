@@ -73,6 +73,14 @@ class Setup(Gtk.Box):
         if autoload:
             self.refresh()
 
+    def on_close(self, *_):
+        # Keep the main loop alive until queued writes finish; a daemon worker
+        # otherwise disappears when the process exits.
+        if self.busy or self.pending:
+            self.message.set_text('Finishing the current operation. Please close again in a moment.')
+            return True
+        return False
+
     def on_destroy(self, *_):
         self.destroyed = True
         if self.timer:
@@ -169,7 +177,7 @@ class Setup(Gtk.Box):
         color = '#26a269' if connected else '#c01c28'
         self.indicator.set_markup(f'<span foreground="{color}">●</span>')
         self.update_controls()
-        error = state.get('device_error') or state.get('audio_error') or state.get('daemon', {}).get('error') or state.get('configuration_error')
+        error = state['service'].get('error') or state.get('device_error') or state.get('audio_error') or state.get('daemon', {}).get('error') or state.get('configuration_error')
         if legacy:
             error = 'Previous manual installation detected. Upgrade it before using these controls; originals will be backed up.'
 
@@ -215,7 +223,9 @@ def launch():
         raise core.AppError('No graphical display. Use the CLI configure command instead.')
     window = Gtk.Window(title='PS-Pulse')
     window.set_default_size(660, 430)
-    window.add(Setup())
+    setup = Setup()
+    window.add(setup)
+    window.connect('delete-event', setup.on_close)
     window.connect('destroy', Gtk.main_quit)
     window.show_all()
     Gtk.main()

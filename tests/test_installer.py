@@ -33,6 +33,7 @@ args=sys.argv[1:]
 url=next(a for a in args if a.startswith('https://'))
 shutil.copyfile(pathlib.Path(os.environ['ASSETS']) / url.rsplit('/',1)[1], args[args.index('-o')+1])
 ''')
+        self.stub('dpkg-query', '#!/bin/sh\nexit 1\n')
         self.stub('sudo', '#!/bin/sh\nprintf "%s\\n" "$*" >> "$COMMAND_LOG"\n')
         self.stub('systemctl', '#!/bin/sh\nprintf "%s\\n" "$*" >> "$COMMAND_LOG"\n')
         self.env = dict(os.environ, PATH=str(self.bin) + ':' + os.environ['PATH'],
@@ -79,3 +80,10 @@ shutil.copyfile(pathlib.Path(os.environ['ASSETS']) / url.rsplit('/',1)[1], args[
         self.assertIn('--user daemon-reload', commands)
         self.assertIn('--user restart pulse-elite-autoswitch.service', commands)
         self.assertNotIn('--user enable', commands)
+
+    @unittest.skipIf(os.geteuid() == 0, 'Installer intentionally rejects root')
+    def test_cli_upgrade_preserves_installed_desktop(self):
+        self.stub('dpkg-query', '#!/bin/sh\nprintf installed\n')
+        result = self.run_installer('--cli')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(self.packages[1], self.log.read_text())

@@ -122,3 +122,12 @@ class GuiTests(unittest.TestCase):
             self.drain_jobs()
         service.assert_called_once_with('disable')
         self.assertFalse(self.ui.dirty)
+
+    def test_close_waits_for_pending_settings_write(self):
+        self.ui.busy = True
+        self.assertTrue(self.ui.on_close())
+        self.ui.busy = False
+        self.ui.pending.add('devices')
+        self.assertTrue(self.ui.on_close())
+        self.ui.pending.clear()
+        self.assertFalse(self.ui.on_close())

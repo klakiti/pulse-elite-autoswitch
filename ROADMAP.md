@@ -1,3 +1,5 @@
+> Version 1.0.0 completes the initial desktop/CLI/package milestone. The plan below is retained as design history; remaining hardware scenarios in TESTING.md and support for other package managers are future work.
+
 # Next milestone: installable app with device selection
 
 ## Goal
