@@ -5,8 +5,20 @@ import sys
 from . import __version__, core
 
 
+class HelpFormatter(argparse.HelpFormatter):
+    def _format_action(self, action):
+        if isinstance(action, argparse._SubParsersAction):
+            return ''.join(self._format_action(command) for command in action._get_subactions())
+        return super()._format_action(action)
+
+
 class HelpParser(argparse.ArgumentParser):
     """Show available arguments for an unfinished command; reject invalid input."""
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('formatter_class', HelpFormatter)
+        super().__init__(*args, **kwargs)
+        self._positionals.title = 'arguments'
+
     def error(self, message):
         if 'the following arguments are required:' in message or 'expected one argument' in message:
             self.print_help()

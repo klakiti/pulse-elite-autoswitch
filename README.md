@@ -2,21 +2,21 @@
 
 Automatically switch between a Sony PULSE Elite headset and a selected fallback audio output. Configure it through a desktop window or entirely from the command line.
 
-**v0.2.1 is a first-release candidate.** The headset protocol and live routing were tested on Zorin OS 18.1 with the `054c:0ecc` PlayStation Link adapter, PipeWire 1.0.5, and WirePlumber 0.4.17. Fresh package installation, reboot/start-at-login recovery, and physical adapter unplug/replug during playback are verified on that PC. Suspend, upgrades, package removal, and additional reconnect scenarios still need end-to-end hardware acceptance tests. Automated tests cover their routing and recovery logic.
+**v0.2.2 is a first-release candidate.** The headset protocol and live routing were tested on Zorin OS 18.1 with the `054c:0ecc` PlayStation Link adapter, PipeWire 1.0.5, and WirePlumber 0.4.17. Fresh package installation, reboot/start-at-login recovery, and physical adapter unplug/replug during playback are verified on that PC. Suspend, upgrades, package removal, and additional reconnect scenarios still need end-to-end hardware acceptance tests. Automated tests cover their routing and recovery logic.
 
 ## Install with one command
 
 On Zorin OS, Ubuntu 22.04+, Debian 12+, or a compatible apt-based distribution with PipeWire, run this in your desktop terminal:
 
 ```bash
-curl -fsSL https://github.com/klakiti/pulse-elite-autoswitch/releases/download/v0.2.1/install.sh | bash
+curl -fsSL https://github.com/klakiti/pulse-elite-autoswitch/releases/download/v0.2.2/install.sh | bash
 ```
 
 The installer downloads the versioned desktop and CLI packages, verifies their SHA-256 checksums, and asks for your sudo password to install them and dependencies through apt. Run it as your normal user. It reloads the user service definitions and restarts an already-running switcher after an upgrade. Existing preferences are preserved.
 
 Then open **PS-Pulse** from the applications menu, select your fallback output, and click **Enable**. Start at login is optional. The installer does not guess your output device or enable an unconfigured service.
 
-For CLI only, append `-s -- --cli` to `bash` in the command above. To download and verify packages without installing them, use `bash -s -- --download-only`. You can inspect [the installer](https://github.com/klakiti/pulse-elite-autoswitch/releases/download/v0.2.1/install.sh) before running it. Other Linux package managers are not supported yet.
+For CLI only, append `-s -- --cli` to `bash` in the command above. To download and verify packages without installing them, use `bash -s -- --download-only`. You can inspect [the installer](https://github.com/klakiti/pulse-elite-autoswitch/releases/download/v0.2.2/install.sh) before running it. Other Linux package managers are not supported yet.
 
 ### Install packages manually
 
@@ -26,10 +26,10 @@ From the directory containing the built packages:
 
 ```bash
 # Desktop UI plus CLI
-sudo apt install ./ps-pulse_0.2.1_all.deb ./ps-pulse-desktop_0.2.1_all.deb
+sudo apt install ./ps-pulse_0.2.2_all.deb ./ps-pulse-desktop_0.2.2_all.deb
 
 # Or just the core/CLI
-sudo apt install ./ps-pulse_0.2.1_all.deb
+sudo apt install ./ps-pulse_0.2.2_all.deb
 ```
 
 Installation registers the user service and adapter permissions. It does not choose an output or start routing automatically. If device access is unavailable afterward, unplug and reconnect the adapter while logged into your local desktop session.

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 main() {
-    local version=0.2.1
+    local version=0.2.2
     local base="https://github.com/klakiti/pulse-elite-autoswitch/releases/download/v${version}"
     local desktop=true download_only=false arg stage package cleanup
     for arg in "$@"; do
