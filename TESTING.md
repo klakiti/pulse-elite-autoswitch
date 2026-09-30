@@ -18,8 +18,9 @@ Tests using simulated hardware state verify policy, not the physical timing or f
 - The packaged systemd user service started automatically in the new boot and was active, using the packaged unit rather than the old manual unit.
 - Device permissions were temporarily unavailable early in login; the daemon recovered automatically, selected the configured speakers, and then selected the Pulse Elite after the headset connected.
 - Post-reboot status showed a connected headset with no current device or daemon errors.
+- Physical USB adapter unplug/replug during playback succeeded, as confirmed by the user. The service logs show adapter absence followed by speaker selection roughly one second later, then automatic headset selection roughly one second after reconnection was confirmed. No service restart was needed.
 
-This confirms fresh package installation and reboot/startup recovery on the tested PC. It does not establish physical adapter unplug/replug, suspend/resume, package upgrade/removal, or migration-helper acceptance.
+This confirms fresh package installation and reboot/startup recovery on the tested PC. It also confirms the tested physical adapter unplug/replug cycle. It does not establish suspend/resume, package upgrade/removal, every reconnect scenario, or migration-helper acceptance.
 
 ## Hardware acceptance checklist before merging/releasing
 
@@ -34,4 +35,4 @@ This confirms fresh package installation and reboot/startup recovery on the test
 9. Test core-only installation without graphical dependencies; verify all setup and control tasks through the CLI.
 10. Test upgrades and removal. Confirm configuration survives, routing stops on removal, and the application disappears from the desktop menu.
 
-Package installation and reboot/startup recovery are confirmed above. Other checklist items remain pending unless explicitly confirmed; the original manual installation was removed before the fresh package installation.
+Package installation, reboot/startup recovery, and a physical unplug/replug cycle during playback are confirmed above. Other checklist items remain pending unless explicitly confirmed; the original manual installation was removed before the fresh package installation.

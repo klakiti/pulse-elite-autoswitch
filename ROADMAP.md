@@ -47,7 +47,7 @@ Adapter presence and headset wireless connection are separate states, both requi
 - If the chosen fallback device is also absent, avoid repeatedly selecting a missing output or arbitrarily choosing another device. Show the condition in the UI/CLI, allow normal audio-server fallback behavior, and retry the configured output when it returns.
 - Report “Adapter disconnected” separately from “Headset off/disconnected” and “Cannot read adapter” in both interfaces.
 
-The current daemon already includes an `adapter-absent` path and device rediscovery. This is an implementation starting point, not evidence that physical unplug/replug recovery has been tested.
+The current daemon already includes an `adapter-absent` path and device rediscovery. A physical unplug/replug cycle during playback has now passed on the test PC; additional reconnect scenarios remain in the acceptance checklist.
 
 ## Implementation sequence
 
@@ -115,7 +115,7 @@ Hardware support must remain scoped to the validated adapter ID `054c:0ecc` unti
 - The v0.1 feature branch includes a shared Python core, CLI, GTK desktop UI, migration helper, user service, udev rule, separate Debian packages, and expanded automated tests.
 - Repeated headset cycles and live Chrome playback switching were verified on Zorin OS 18.1, PipeWire 1.0.5, and WirePlumber 0.4.17.
 - `PROTOCOL.md` records the observed status signatures and remaining uncertainty.
-- Fresh v0.1 package installation and reboot/start-at-login recovery are confirmed on the test PC. Suspend/resume, physical hot-unplug recovery, upgrades, and package removal remain pending.
+- Fresh v0.1 package installation, reboot/start-at-login recovery, and physical adapter unplug/replug during playback are confirmed on the test PC. Suspend/resume, upgrades, package removal, and additional reconnect scenarios remain pending.
 - The original machine-specific installation was removed, and the v0.1 packages are now installed and running on the test PC.
 - Before changing an existing installation, inspect its active user unit, executable, configuration, and udev rule. Do not assume the administrator-only rule installation has been completed.
 
