@@ -2,7 +2,9 @@
 
 ## Goal
 
-Turn the working Pulse Elite automatic output switcher into an installable Linux package. Users should be able to select which playback device is used when the Pulse Elite is disconnected, without editing Python code or copying internal PipeWire node names.
+Turn the working Pulse Elite automatic output switcher into an installable Linux package. Users should be able to select which playback device is used when the Pulse Elite is disconnected, through either a desktop UI or a fully functional CLI, without editing Python code or manually editing configuration files.
+
+Both interfaces are first-release requirements. They must share the same configuration, validation, and service-control logic; neither should depend on the other being open.
 
 The existing private repository is the continuation point. This document records planned work; the package and graphical setup window are not implemented yet.
 
@@ -19,6 +21,17 @@ A small setup window launched from the applications menu should:
 5. Provide Save, Enable automatic switching, and Pause controls.
 6. Explain missing device access, an unavailable selected output, or an unsupported adapter in plain language.
 
+The CLI must support the complete setup and management workflow without a graphical display:
+
+- List available playback devices with friendly names and stable identifiers.
+- Configure the Pulse Elite and fallback outputs through an interactive terminal picker or explicit command arguments.
+- Show and update configuration, inspect headset/service status, and enable, disable, pause, or resume switching.
+- Control start-at-login separately from whether switching is running now.
+- Provide dry-run diagnostics, useful help, documented exit codes, and machine-readable JSON output for scripts.
+- Support noninteractive operation without surprise prompts; the exact command syntax will be defined during implementation.
+
+CLI operation still requires a reachable user audio session and suitable HID permissions. Supporting a terminal without a desktop window does not imply a root system daemon or automatic access from arbitrary SSH sessions.
+
 Save stable device identities in a per-user configuration file, never transient PipeWire object IDs. Reuse the existing `headset_sink` and `speakers_sink` configuration keys initially for compatibility. If friendly names collide, show enough device information to distinguish the choices. Handle changes to audio profiles and node names without silently selecting a different physical device.
 
 ## Implementation sequence
@@ -28,11 +41,16 @@ Save stable device identities in a per-user configuration file, never transient 
 - Extract reusable detection and routing code from the current polling loop.
 - Keep measured report signatures, three-reading confirmation, and unknown-state behavior.
 - Validate both configured outputs and reject choosing the headset as its own fallback.
+- Provide shared APIs for device discovery, configuration validation and atomic persistence, routing, status, and service control.
+- Keep CLI commands independent of GUI imports and display-server availability.
 - Preserve a command-line dry-run mode and diagnostics.
 - Add tests for state sequences, read failures, device replacement, and routing recovery.
 
-### 2. Add the setup window
+### 2. Add the CLI and desktop setup window
 
+- Implement the full CLI setup and management workflow first using the shared APIs.
+- Build the desktop window on the same APIs, with equivalent configuration and service controls.
+- Ensure changes made in either interface are reflected in the other and applied consistently to the daemon.
 - Enumerate PipeWire playback outputs and display friendly names.
 - Detect the Pulse Elite output and allow choosing the alternative device.
 - Save configuration atomically and apply changes to the user service.
@@ -43,7 +61,8 @@ Choose the GUI toolkit during implementation based on the target desktop and pac
 
 ### 3. Build the package
 
-- Include the daemon, setup application, desktop launcher, user service, and device-specific udev rule.
+- Include the daemon, CLI, setup application, desktop launcher, user service, and device-specific udev rule.
+- Prefer a core package containing the daemon and CLI, with a desktop UI package depending on the core, so terminal-only users do not need graphical dependencies.
 - Declare runtime dependencies and provide a repeatable build command.
 - Let the package manager handle system-level installation permissions; keep audio routing in the logged-in user's session.
 - Install the user unit in the appropriate system user-unit directory. Do not assume an interactive desktop user's HOME in package installation scripts.
@@ -55,6 +74,9 @@ Choose the GUI toolkit during implementation based on the target desktop and pac
 ### 4. Validate before release
 
 - Fresh installation, first-run selection, pause/resume, upgrade, removal, and reinstall.
+- Complete initial configuration and ongoing management independently through the GUI and CLI.
+- CLI operation with display environment variables unset, plus noninteractive JSON output and exit codes.
+- Cross-interface consistency: CLI changes appear in the UI, UI changes appear in CLI output, and concurrent saves do not corrupt configuration.
 - Headset power-on and power-off with playback already running.
 - Login, reboot, suspend/resume, adapter unplug/replug, and PipeWire restart.
 - Fallback device absent at login, disconnected during use, and later reconnected.
@@ -65,7 +87,7 @@ Choose the GUI toolkit during implementation based on the target desktop and pac
 
 ## Acceptance criteria
 
-A user on the supported system can install the package, open the setup window, select their alternative playback device, and enable switching without editing files or running setup commands manually. Existing playback follows confirmed headset connection changes. The app starts when the user chooses, preserves volume and microphone settings, and provides a clear way to pause or disable it.
+A user on the supported system can install the package, select their alternative playback device, and enable switching entirely through either the desktop UI or the CLI. The UI workflow requires no terminal commands after installation; the CLI workflow requires no graphical display or manual configuration-file editing. Both interfaces operate on the same saved configuration and service. Existing playback follows confirmed headset connection changes. The app starts when the user chooses, preserves volume and microphone settings, and provides a clear way to pause or disable it.
 
 Hardware support must remain scoped to the validated adapter ID `054c:0ecc` until additional revisions are tested. Document unverified firmware behavior rather than treating the observed protocol as universal.
 
@@ -78,4 +100,4 @@ Hardware support must remain scoped to the validated adapter ID `054c:0ecc` unti
 - The original machine-specific service remains a separate installation; publishing the configurable source did not replace it.
 - Before changing an existing installation, inspect its active user unit, executable, configuration, and udev rule. Do not assume the administrator-only rule installation has been completed.
 
-Suggested continuation request: "Continue the installable package milestone in ROADMAP.md, beginning with the device-selection setup window and a Debian package for Zorin/Ubuntu."
+Suggested continuation request: "Continue the installable package milestone in ROADMAP.md, beginning with the shared configuration/control layer, complete CLI, desktop device-selection UI, and Debian packaging for Zorin/Ubuntu."
