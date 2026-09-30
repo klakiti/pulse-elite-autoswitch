@@ -1,10 +1,10 @@
 [Unit]
-Description=Switch between Pulse Elite headset and speakers
+Description=Switch Pulse Elite and a selected fallback audio output
 After=pipewire.service wireplumber.service
+ConditionPathExists=%E/pulse-elite-autoswitch/config.json
 
 [Service]
-Type=simple
-ExecStart=/usr/bin/python3 %h/.local/bin/pulse-elite-autoswitch
+ExecStart=/usr/bin/ps-pulse run
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=yes

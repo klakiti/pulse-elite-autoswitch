@@ -1,110 +1,155 @@
-# Pulse Elite AutoSwitch for Linux
+# PS-Pulse for Linux
 
-Automatically switch playback between a Sony PULSE Elite headset connected through a PlayStation Link USB adapter and your speakers.
+Automatically switch between a Sony PULSE Elite headset and a selected fallback audio output. Configure it through a desktop window or entirely from the command line.
 
-The USB adapter can remain visible to PipeWire when the headset is off. This tool reads its HID connection status and selects the appropriate PipeWire output through WirePlumber. It runs as a small systemd user service, with no third-party Python dependencies.
+**Version 1.0.0.** The headset protocol and live routing were tested on Zorin OS 18.1 with the `054c:0ecc` PlayStation Link adapter, PipeWire 1.0.5, and WirePlumber 0.4.17. Fresh package installation, reboot/start-at-login recovery, and physical adapter unplug/replug during playback are verified on that PC. Package upgrades, removal, and one-command desktop/CLI installation have also been exercised on that PC. Suspend and additional reconnect scenarios still need end-to-end hardware acceptance tests. Automated tests cover their routing and recovery logic.
 
-## Tested setup
+## Install with one command
 
-- Zorin OS 18.1 (Ubuntu 24.04 base)
-- PipeWire 1.0.5 and WirePlumber 0.4.17
-- PlayStation Link adapter **USB ID `054c:0ecc`**
-- PULSE Elite headset and Klipsch R-41PM USB speakers
-
-Repeated power cycles worked, including moving an already-playing Chrome stream in both directions. Other firmware versions and adapter revisions are unverified. Suspend/resume, reboot, and hot-unplug recovery are implemented but have not yet been validated on hardware.
-
-## Behavior
-
-- Polls HID feature report `0x82` every 0.5 seconds using a read-only device handle.
-- Requires three consecutive matching readings before acting, approximately 1–1.5 seconds after the status becomes visible.
-- Connected headset: select the configured headset output.
-- Observed shutdown status, fully disconnected headset, or absent adapter: select the configured speakers.
-- Unknown reports or read errors: leave the current output unchanged.
-- Retries unavailable outputs and detects PipeWire restarts through its server cookie.
-- Rediscovers the HID device rather than assuming a permanent `/dev/hidrawN` number.
-- Leaves volumes and microphone routing unchanged; does not record audio.
-- A manual output choice remains until the next relevant connection change or device/server recovery.
-
-Applications explicitly pinned to another device may not follow the default output. Ordinary Chrome playback followed it on the tested setup.
-
-## Requirements
-
-Python 3, PipeWire tools (`pw-dump`), WirePlumber (`wpctl`), systemd user services, and a local desktop session managed by systemd-logind. The HID access rule grants access to the active local user.
-
-## Install
-
-Run the user installation as your normal desktop user:
+On Zorin OS, Ubuntu 22.04+, Debian 12+, or a compatible apt-based distribution with PipeWire, run this in your desktop terminal:
 
 ```bash
-bash install.sh
-~/.local/bin/pulse-elite-autoswitch --list-sinks
+curl -fsSL https://github.com/klakiti/pulse-elite-autoswitch/releases/download/v1.0.0/install.sh | bash
 ```
 
-Edit `~/.config/pulse-elite-autoswitch/config.json` and replace both placeholders with the complete node names from `--list-sinks`. Use the PlayStation Link **playback output** and your preferred speaker output. Configuration follows `XDG_CONFIG_HOME` when set.
+The installer downloads the versioned desktop and CLI packages, verifies their SHA-256 checksums, and asks for your sudo password to install them and dependencies through apt. Run it as your normal user. It reloads the user service definitions and restarts an already-running switcher after an upgrade. Existing preferences are preserved. A CLI upgrade also updates an already-installed desktop package to keep their versions compatible.
 
-Install the device access rule using administrator privileges:
+Then open **PS-Pulse** from the applications menu, select your fallback output, and click **Enable**. Start at login is optional. The installer does not guess your output device or enable an unconfigured service.
+
+For CLI only, append `-s -- --cli` to `bash` in the command above. To download and verify packages without installing them, use `bash -s -- --download-only`. You can inspect [the installer](https://github.com/klakiti/pulse-elite-autoswitch/releases/download/v1.0.0/install.sh) before running it. Other Linux package managers are not supported yet.
+
+### Install packages manually
+
+The core package contains the daemon and CLI; the optional desktop package adds a GTK 3 setup window. No Python packages from pip are required.
+
+From the directory containing the built packages:
 
 ```bash
-sudo install -m 0644 70-pulse-elite.rules /etc/udev/rules.d/70-pulse-elite.rules
-sudo udevadm control --reload-rules
+# Desktop UI plus CLI
+sudo apt install ./ps-pulse_1.0.0_all.deb ./ps-pulse-desktop_1.0.0_all.deb
+
+# Or just the core/CLI
+sudo apt install ./ps-pulse_1.0.0_all.deb
 ```
 
-Unplug and reconnect the PS Link adapter so the rule takes effect. This permission is separate from the systemd user service: the daemon itself must not run as root.
+Installation registers the user service and adapter permissions. It does not choose an output or start routing automatically. If device access is unavailable afterward, unplug and reconnect the adapter while logged into your local desktop session.
 
-Optionally check state detection before enabling routing:
+### Upgrading the earlier manual installation
+
+The previous `~/.local/bin` script and user unit override the packaged versions. After installing the package, open the desktop app and choose **Upgrade previous manual setup**, or run:
 
 ```bash
-~/.local/bin/pulse-elite-autoswitch --dry-run
+/usr/bin/ps-pulse migrate
 ```
 
-Stop the dry run with Ctrl+C, then enable the service:
+Migration backs up recognized old files under the user's configuration directory before retiring them. With no saved configuration, switching pauses until you select outputs and start it. Existing valid configuration and enabled/running service preferences are retained where possible. Migration does not remove unrelated files or the existing local udev rule.
+
+## Desktop setup
+
+Open **PS-Pulse** from the applications menu, or run:
 
 ```bash
-systemctl --user enable --now pulse-elite-autoswitch
-journalctl --user -u pulse-elite-autoswitch -f
+/usr/bin/ps-pulse gui
 ```
 
-If upgrading the earlier machine-specific version, finish editing the configuration before restarting its already-enabled service:
+1. Confirm the detected PlayStation Link playback output.
+2. Select a fallback output, such as speakers or monitor audio.
+3. Choose whether to start at login. Device selections and the login preference save immediately.
+4. Click **Enable** to start routing or **Disable** to stop it without changing the login preference.
+
+The headset indicator is green when Connected and red when Disconnected (including an unplugged adapter). Read errors appear separately; an unconfirmed connection displays Disconnected.
+
+Read errors appear below the controls. Configuration changes from the CLI appear on refresh; pending desktop edits are preserved while saving.
+
+## CLI setup and controls
 
 ```bash
-systemctl --user restart pulse-elite-autoswitch
+ps-pulse devices
+ps-pulse configure                 # interactive terminal picker
+ps-pulse configure --fallback 'EXACT_NODE_NAME' --json
+ps-pulse show-config --json
+ps-pulse status --json
+ps-pulse start                     # start now
+ps-pulse stop                     # stop now; retain login preference
+ps-pulse autostart enable                    # enable start-at-login only
+ps-pulse autostart disable                   # disable start-at-login only
+ps-pulse dry-run --duration 30      # no routing changes
 ```
 
-## Manage and troubleshoot
+`configure` automatically selects the single supported headset output. Use `--headset NODE_NAME` if explicit selection is needed. A noninteractive caller must supply `--fallback`; `devices --json` provides machine-readable choices. Device names are arguments, never shell commands.
+
+The CLI has no GTK or display-server dependency. It still needs the correct user's PipeWire session, systemd user manager, and HID permissions. Arbitrary SSH sessions are not guaranteed audio/device access.
+
+Configuration is stored at `$XDG_CONFIG_HOME/pulse-elite-autoswitch/config.json`, defaulting to `~/.config/pulse-elite-autoswitch/config.json`. Both interfaces use the same validation and atomic writes. Node names and physical device names are saved, not transient IDs. If a profile changes, a unique output on the same physical device can be used; ambiguous alternatives require selection again.
+
+For foreground experiments, put `--config /path/to/config.json` before the subcommand. Service controls and the desktop UI always use the standard per-user configuration.
+
+Exit codes: `0` success, `1` operational/configuration error, `2` argument syntax error, `130` interrupted CLI input. Read-only `status` reports detected problems in its JSON fields; successfully obtaining that status returns `0`. JSON-capable commands return operational errors as `{"error": "..."}` with exit code `1`.
+
+## Routing behavior
+
+- Poll HID report `0x82` every half-second; confirm three readings before switching.
+- Connected headset: select Pulse Elite.
+- Headset shutdown, headset disconnected, or **USB adapter removed**: select the configured fallback.
+- Reconnected adapter: rediscover it; switch to the headset only after confirming connection and output availability.
+- Unknown status or permission/read error: keep the current output.
+- Missing fallback: report it and retry when it returns, without deliberately selecting an arbitrary replacement. PipeWire may apply its own fallback policy.
+- Preserve microphone routing and volume settings.
+- Detect PipeWire restart and changed output IDs; retry routing without restarting the app.
+- A manual output change is respected until the next relevant headset/adapter transition or recovery.
+
+Applications pinned to a specific output may not follow the default. Existing Chrome playback did follow it during hardware testing. Multiple supported adapters at once are not supported yet. See [PROTOCOL.md](PROTOCOL.md) for evidence and firmware limitations.
+
+## Troubleshooting and removal
 
 ```bash
-# Current service status
-systemctl --user status pulse-elite-autoswitch
-
-# Recent diagnostics
-journalctl --user -u pulse-elite-autoswitch -n 50 --no-pager
-
-# Pause; selected output remains unchanged
-systemctl --user stop pulse-elite-autoswitch
-
-# Disable startup and stop
-systemctl --user disable --now pulse-elite-autoswitch
+systemctl --user status pulse-elite-autoswitch.service
+journalctl --user -u pulse-elite-autoswitch.service -n 50 --no-pager
+ps-pulse devices --json
 ```
 
-- **Permission denied:** install the udev rule, replug the adapter, and confirm your local desktop session is active.
-- **Output unavailable:** rerun `--list-sinks` and check the configured node names and active audio profiles.
-- **Unknown state:** the tool deliberately avoids guessing. See [PROTOCOL.md](PROTOCOL.md) for the measured report format.
-- **Another instance running:** stop the service before starting a manual dry run.
-- **Multiple adapters:** the tool currently refuses to choose between multiple `054c:0ecc` adapters.
+For permission errors, check that your local login session is active and reconnect the USB adapter. For unavailable outputs, refresh devices and save a new selection. For a duplicate instance, stop the older service or use the migration command.
 
-To remove it, disable the service, then remove `~/.local/bin/pulse-elite-autoswitch`, `~/.config/systemd/user/pulse-elite-autoswitch.service`, and optionally its configuration directory. Run `systemctl --user daemon-reload`. To remove device permissions too, remove `/etc/udev/rules.d/70-pulse-elite.rules` with administrator privileges, reload udev rules, and replug the adapter. Adjust user configuration paths if using `XDG_CONFIG_HOME`.
+To remove:
 
-## Development
+```bash
+ps-pulse autostart disable
+ps-pulse stop
+sudo apt remove ps-pulse-desktop ps-pulse
+systemctl --user daemon-reload
+```
+
+Configuration and migration backups are preserved. Delete them explicitly only if no longer needed. A previous manually installed `/etc/udev/rules.d/70-pulse-elite.rules` is also preserved; remove it separately if you no longer want its permissions. Reconnect the adapter after changing rules.
+
+## Build and test
 
 ```bash
 python3 -m unittest discover -s tests -v
-bash -n install.sh
-systemd-analyze --user verify pulse-elite-autoswitch.service
-udevadm verify 70-pulse-elite.rules
+python3 build-deb.py
+# Outputs: dist/*.deb and dist/SHA256SUMS
 ```
 
-The project contains no raw captures, personal sink configuration, or adapter serial numbers. The running machine-specific installation is independent of this source checkout until explicitly updated.
+Build requires `dpkg-deb` and Python 3.10+. GUI tests run when GTK 3 and a display are available; they are skipped in core-only environments. The build does not install packages or change the running service. Package files and personal configuration are excluded from Git.
+
+Work is developed on feature branches and submitted through pull requests. Versioned releases are published from main after automated checks pass. See [TESTING.md](TESTING.md) and [ROADMAP.md](ROADMAP.md).
 
 ## Research reference
 
-[Jprnp/pslink-libusb](https://github.com/Jprnp/pslink-libusb) provided the lead that this adapter exposes useful HID feature reports. This implementation was written separately and the `0x82` signatures were tested directly on Linux. It does not use that project's Windows driver replacement or firmware-setting commands.
+[Jprnp/pslink-libusb](https://github.com/Jprnp/pslink-libusb) provided the lead that this adapter exposes HID status reports. The Linux implementation was written separately and validated against local device reports; it does not use Windows driver replacements or send device-setting reports.
+
+### Upgrading from Pulse Elite AutoSwitch
+
+The `ps-pulse` and `ps-pulse-desktop` packages replace the old packages through apt. The existing configuration directory, internal module path, and systemd service name are retained to preserve device settings and login preferences. The desktop launcher is now PS-Pulse. CLI service controls are `ps-pulse start`, `ps-pulse stop`, and `ps-pulse autostart enable|disable`. Normal controls print a short confirmation; add `--json` for diagnostics or scripts. `ps-pulse status --json` includes the full service and detector details.
+
+### Contextual command help
+
+The desktop package includes the full CLI. Run `ps-pulse` by itself to list commands and descriptions. Incomplete commands such as `ps-pulse autostart` show the available next arguments. You can also request contextual help explicitly:
+
+```bash
+ps-pulse '?'
+ps-pulse autostart '?'
+ps-pulse configure '?'
+ps-pulse autostart enable --help
+```
+
+Quote `?` to prevent shell wildcard expansion. This is help after pressing Enter, rather than a separate interactive shell. Help never starts or stops the service. Existing `-h` and `--help` remain available; invalid arguments still produce an error.

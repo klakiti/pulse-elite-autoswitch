@@ -1,3 +1,5 @@
+> Version 1.0.0 completes the initial desktop/CLI/package milestone. The plan below is retained as design history; remaining hardware scenarios in TESTING.md and support for other package managers are future work.
+
 # Next milestone: installable app with device selection
 
 ## Goal
@@ -6,7 +8,7 @@ Turn the working Pulse Elite automatic output switcher into an installable Linux
 
 Both interfaces are first-release requirements. They must share the same configuration, validation, and service-control logic; neither should depend on the other being open.
 
-The existing private repository is the continuation point. This document records planned work; the package and graphical setup window are not implemented yet.
+The existing private repository is the continuation point. A v0.1 candidate now implements the shared core, CLI, GTK desktop window, migration helper, and separate Debian packages on a feature branch. See TESTING.md for the hardware/package acceptance checks still required before merging or releasing.
 
 ## Proposed first release
 
@@ -47,7 +49,7 @@ Adapter presence and headset wireless connection are separate states, both requi
 - If the chosen fallback device is also absent, avoid repeatedly selecting a missing output or arbitrarily choosing another device. Show the condition in the UI/CLI, allow normal audio-server fallback behavior, and retry the configured output when it returns.
 - Report “Adapter disconnected” separately from “Headset off/disconnected” and “Cannot read adapter” in both interfaces.
 
-The current daemon already includes an `adapter-absent` path and device rediscovery. This is an implementation starting point, not evidence that physical unplug/replug recovery has been tested.
+The current daemon already includes an `adapter-absent` path and device rediscovery. A physical unplug/replug cycle during playback has now passed on the test PC; additional reconnect scenarios remain in the acceptance checklist.
 
 ## Implementation sequence
 
@@ -112,11 +114,11 @@ Hardware support must remain scoped to the validated adapter ID `054c:0ecc` unti
 
 ## Current evidence and continuation notes
 
-- Existing source includes a configurable Python daemon, user service, udev rule, manual installer, and five passing unit tests.
+- The v0.1 feature branch includes a shared Python core, CLI, GTK desktop UI, migration helper, user service, udev rule, separate Debian packages, and expanded automated tests.
 - Repeated headset cycles and live Chrome playback switching were verified on Zorin OS 18.1, PipeWire 1.0.5, and WirePlumber 0.4.17.
 - `PROTOCOL.md` records the observed status signatures and remaining uncertainty.
-- Reboot, suspend/resume, hot-unplug recovery, and package installation have not yet been validated on hardware.
-- The original machine-specific service remains a separate installation; publishing the configurable source did not replace it.
+- Fresh v0.1 package installation, reboot/start-at-login recovery, and physical adapter unplug/replug during playback are confirmed on the test PC. Suspend/resume, upgrades, package removal, and additional reconnect scenarios remain pending.
+- The original machine-specific installation was removed, and the v0.1 packages are now installed and running on the test PC.
 - Before changing an existing installation, inspect its active user unit, executable, configuration, and udev rule. Do not assume the administrator-only rule installation has been completed.
 
 Suggested continuation request: "Continue the installable package milestone in ROADMAP.md, beginning with the shared configuration/control layer, complete CLI, desktop device-selection UI, and Debian packaging for Zorin/Ubuntu."

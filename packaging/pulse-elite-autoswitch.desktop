@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=PS-Pulse
+Comment=Choose audio outputs and manage automatic headset switching
+Exec=/usr/bin/ps-pulse gui
+Icon=audio-headphones
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=headset;audio;speakers;PlayStation;
+StartupNotify=true
